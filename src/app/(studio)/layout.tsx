@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { Logo } from "@/components/logo";
 import { PhoneIcon, SearchIcon } from "@/components/icons";
+import { AccountMenu } from "./account-menu";
 import { StudioNav } from "./studio-nav";
 import styles from "./studio.module.css";
 
@@ -20,9 +22,9 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
             <PhoneIcon size={16} />
             Pair phone
           </Link>
-          <button type="button" className={styles.avatar} aria-label="Account">
-            D
-          </button>
+          <Suspense fallback={<span className={styles.avatar} aria-hidden="true" />}>
+            <AccountMenu />
+          </Suspense>
         </div>
       </header>
       {children}

@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import { AssetArt } from "@/components/artwork";
-import { PhoneIcon, UploadIcon } from "@/components/icons";
-import { QrPlaceholder } from "@/components/qr-placeholder";
+import { UploadIcon } from "@/components/icons";
 import type { Asset, AssetKind } from "@/lib/types";
+import { PairPanel } from "./pair-panel";
 import styles from "./uploads.module.css";
 
 const KIND_FILTERS: { value: AssetKind | "all"; label: string }[] = [
@@ -49,7 +49,8 @@ export function UploadsView({ assets, clients }: { assets: Asset[]; clients: str
           <div role="status" className={styles.arrival}>
             <span className={styles.dot} aria-hidden="true" />
             <span>
-              <strong>{fresh.length} new photos</strong> from Studio phone for {fresh[0].clientName} · just now
+              <strong>{fresh.length === 1 ? "1 new photo" : `${fresh.length} new photos`}</strong> from Studio phone
+              {fresh[0].clientName && ` for ${fresh[0].clientName}`} · {fresh[0].createdLabel}
             </span>
             <Link href="/editor">Start a mockup →</Link>
           </div>
@@ -94,41 +95,16 @@ export function UploadsView({ assets, clients }: { assets: Asset[]; clients: str
             </li>
           ))}
         </ul>
-        {visible.length === 0 && <p className={styles.empty}>Nothing here yet for this filter.</p>}
+        {visible.length === 0 && (
+          <p className={styles.empty}>
+            {assets.length === 0
+              ? "No uploads yet. Pair the studio phone, and photos you take will appear here."
+              : "Nothing here yet for this filter."}
+          </p>
+        )}
       </main>
 
-      <aside id="pair" aria-label="Pair a phone" className={styles.aside}>
-        <section className={styles.panel}>
-          <h2>Pair a phone</h2>
-          <div className={styles.qr}>
-            <QrPlaceholder label="Pairing QR code (placeholder)" />
-          </div>
-          <ol>
-            <li>
-              On the phone, open <strong>/capture</strong> on this site
-            </li>
-            <li>Scan this code</li>
-            <li>Photos you take land here in seconds</li>
-          </ol>
-          <p className={styles.note}>The code changes every 2 minutes. A paired phone stays connected until 22:00.</p>
-        </section>
-
-        <section className={styles.panel}>
-          <h2 className={styles.small}>Paired phones</h2>
-          <div className={styles.device}>
-            <span className={styles.deviceIcon}>
-              <PhoneIcon size={16} />
-            </span>
-            <span className={styles.deviceText}>
-              <span>Studio phone</span>
-              <span className={styles.meta}>Active · until 22:00</span>
-            </span>
-            <button type="button" className="btn">
-              Revoke
-            </button>
-          </div>
-        </section>
-      </aside>
+      <PairPanel />
     </div>
   );
 }

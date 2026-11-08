@@ -34,111 +34,50 @@
   line-height: 1.5;
 }
 
-.scanner {
-  position: relative;
-  flex: 1;
-  min-height: 320px;
-  border-radius: 24px;
-  background: #1a1a19;
-  overflow: hidden;
+.steps {
+  margin: 0;
+  padding: 20px 20px 20px 40px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  line-height: 1.45;
+  color: var(--ink-2);
 }
 
-.reticle {
-  position: relative;
-  width: 220px;
-  height: 220px;
-}
-
-.cornerTl,
-.cornerTr,
-.cornerBl,
-.cornerBr {
-  position: absolute;
-  width: 36px;
-  height: 36px;
-  border: 0 solid #ffffff;
-}
-
-.cornerTl {
-  top: 0;
-  left: 0;
-  border-top-width: 3px;
-  border-left-width: 3px;
-  border-top-left-radius: 14px;
-}
-
-.cornerTr {
-  top: 0;
-  right: 0;
-  border-top-width: 3px;
-  border-right-width: 3px;
-  border-top-right-radius: 14px;
-}
-
-.cornerBl {
-  bottom: 0;
-  left: 0;
-  border-bottom-width: 3px;
-  border-left-width: 3px;
-  border-bottom-left-radius: 14px;
-}
-
-.cornerBr {
-  bottom: 0;
-  right: 0;
-  border-bottom-width: 3px;
-  border-right-width: 3px;
-  border-bottom-right-radius: 14px;
-}
-
-.qrInView {
-  position: absolute;
-  inset: 34px;
-  border-radius: 8px;
-  background: #ffffff;
-  opacity: 0.9;
+.codeForm {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.scanLine {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  top: 50%;
-  height: 2px;
-  background: var(--accent);
-  box-shadow: 0 0 12px var(--accent);
-  animation: scan 2.4s ease-in-out infinite alternate;
+.codeForm label {
+  font-weight: 600;
 }
 
-@keyframes scan {
-  from {
-    top: 18%;
-  }
-  to {
-    top: 82%;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .scanLine {
-    animation: none;
-  }
-}
-
-.scanStatus {
-  position: absolute;
-  bottom: 20px;
-  left: 0;
-  right: 0;
+.codeInput {
+  height: 60px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  font-family: var(--font-display);
+  font-size: 28px;
+  letter-spacing: 0.3em;
   text-align: center;
-  color: #d4d4d0;
-  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.codeInput:focus-visible {
+  outline-offset: 0;
+  border-color: var(--accent);
+}
+
+.error {
+  margin: 0;
+  color: #b42318;
 }
 
 .footer {
@@ -146,6 +85,11 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.footer form {
+  display: flex;
+  flex-direction: column;
 }
 
 .tall {

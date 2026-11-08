@@ -6,27 +6,38 @@ The earlier 3D try-on prototype is shelved; it is in git history before this bra
 
 ## Status
 
-This is the UI scaffold. Every screen from the design is built with sample data; nothing is connected to a backend yet.
+Sign-in, studio setup and phone pairing run on Supabase. Photo uploads, the editor engine and background removal are still to come.
 
 | Route | Screen | What works today |
 | --- | --- | --- |
-| `/uploads` | Uploads library and phone pairing panel | Kind and client filters |
-| `/editor` | Mockup editor | Tool switching, layer show/hide/lock, blend mode, opacity, healed-look preview, zoom |
-| `/capture` | Phone: pair with the studio | Layout only; the button skips to the camera |
-| `/capture/camera` | Phone: camera | Real camera after a tap, shutter, gallery picker |
+| `/sign-in`, `/setup` | Email-link sign-in, then name your studio | Real (Supabase Auth) |
+| `/uploads` | Uploads library and phone pairing panel | Lists the studio's assets; live pairing QR and 6-digit code; paired phones with revoke |
+| `/editor` | Mockup editor | Sample layers. Tool switching, layer show/hide/lock, blend mode, opacity, healed-look preview, zoom |
+| `/capture` | Phone: pair with the studio | Real: QR link or 6-digit code pairs the phone for 12 hours; unpair |
+| `/capture/camera` | Phone: camera | Needs pairing. Real camera after a tap, shutter, gallery picker; sending isn't wired yet |
 | `/capture/sent` | Phone: upload progress | Static |
 | `/mockups`, `/clients`, `/flash` | Placeholders | — |
+
+Studio routes need a signed-in user who belongs to a studio (`src/proxy.ts`, `src/lib/auth.ts`). Phone routes need the pairing cookie; phones never sign in. Their requests use the service role after the device token is checked (`src/lib/pairing.ts`).
 
 The editor preview uses CSS blend modes and filters as a stand-in. The real canvas will be a WebGL compositor (PixiJS) so mesh warp stays smooth on a 12 MP photo.
 
 ## Run it
 
+Needs Docker for the local Supabase stack.
+
 ```bash
 npm install
+npx supabase start
+npx supabase status -o env   # copy API_URL, ANON_KEY and SERVICE_ROLE_KEY into .env.local
 npm run dev
 ```
 
-Open http://localhost:3000. For the phone screens, open `/capture` on a phone on the same network. Camera access needs HTTPS outside localhost, so use `next dev --experimental-https`.
+`.env.local` uses the names in `.env.example`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
+
+Open http://localhost:3000 and sign in. Locally, sign-in emails are caught by Mailpit at http://localhost:54324. `supabase/config.toml` allows redirects back to ports 3000 and 3100.
+
+To pair a real phone, it has to reach the dev server: set `NEXT_PUBLIC_SITE_URL` to your computer's LAN address (or a tunnel) so the QR code points there. Camera access needs HTTPS outside localhost, so use `next dev --experimental-https`.
 
 ## Stack
 
@@ -36,8 +47,8 @@ Open http://localhost:3000. For the phone screens, open `/capture` on a phone on
 
 ## Next steps
 
-1. Supabase project, apply the migration, email-link sign-in.
-2. Pairing: API route that issues a short-lived QR token, and phone uploads straight to R2 through presigned URLs.
-3. Uploads list from the `assets` table, live through Realtime.
+1. Phone uploads straight to R2 through presigned URLs, recorded in `assets`.
+2. Uploads screen live through Realtime (replaces the pairing panel's polling, too).
+3. Hosted Supabase project for the Vercel deployment.
 4. Editor engine on PixiJS: layers, transforms, mesh warp, history, autosave.
 5. Background removal in the browser (BiRefNet via ONNX Runtime Web) plus line-art threshold mode.
