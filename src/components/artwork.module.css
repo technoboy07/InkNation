@@ -1,0 +1,36 @@
+.photo {
+  position: absolute;
+  inset: 0;
+  background: var(--skin);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.limb {
+  width: 46%;
+  height: 120%;
+  border-radius: 999px;
+  background: var(--skin-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.inked {
+  display: flex;
+  transform: rotate(-18deg);
+  opacity: 0.85;
+  mix-blend-mode: multiply;
+}
+
+.design {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  color: var(--ink);
+}
