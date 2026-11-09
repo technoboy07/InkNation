@@ -7,10 +7,11 @@ import { supabaseEnv } from "./config";
 
 // Acts as the signed-in user, so row-level security applies.
 export async function createUserClient() {
+  // Session checks compare token expiry with the clock, so they only run at request time. This comes
+  // first so a build without Supabase keys (a fresh preview deploy) defers instead of failing.
+  await connection();
   const env = supabaseEnv();
   if (!env) throw new Error("Supabase is not configured. Copy .env.example to .env.local.");
-  // Session checks compare token expiry with the clock, so they only run at request time.
-  await connection();
   const cookieStore = await cookies();
   return createServerClient(env.url, env.anonKey, {
     cookies: {
