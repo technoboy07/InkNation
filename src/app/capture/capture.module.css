@@ -153,17 +153,7 @@
   height: 52px;
   border-radius: 8px;
   background: var(--skin);
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.sentThumb span {
-  width: 18px;
-  height: 64px;
-  border-radius: 999px;
-  background: var(--skin-2);
+  object-fit: cover;
 }
 
 .sentText {

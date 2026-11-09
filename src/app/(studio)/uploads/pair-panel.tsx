@@ -2,15 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { PhoneIcon } from "@/components/icons";
+import { useStudioChanges } from "@/lib/supabase/browser";
 import { createPairingCode, listDevices, revokeDevice, type DeviceRow, type PairingCode } from "./pair-actions";
 import styles from "./uploads.module.css";
 
-// Until Realtime is wired, the panel checks for newly paired phones every few seconds.
-const DEVICE_POLL_MS = 4000;
-
 const timeOf = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-export function PairPanel() {
+export function PairPanel({ studioId }: { studioId: string }) {
   const [code, setCode] = useState<PairingCode | null>(null);
   const [devices, setDevices] = useState<DeviceRow[] | null>(null);
   const [justPaired, setJustPaired] = useState(false);
@@ -37,30 +35,22 @@ export function PairPanel() {
     return () => clearTimeout(timer);
   }, [code, refreshCode]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const poll = () => {
-      if (document.hidden) return;
-      listDevices()
-        .then((rows) => {
-          if (cancelled) return;
-          // A new phone used up the code on screen, so show the next one.
-          if (deviceCount.current !== null && rows.length > deviceCount.current) {
-            setJustPaired(true);
-            refreshCode();
-          }
-          deviceCount.current = rows.length;
-          setDevices(rows);
-        })
-        .catch(() => {});
-    };
-    poll();
-    const timer = setInterval(poll, DEVICE_POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
+  const loadDevices = useCallback(() => {
+    listDevices()
+      .then((rows) => {
+        // A new phone used up the code on screen, so show the next one.
+        if (deviceCount.current !== null && rows.length > deviceCount.current) {
+          setJustPaired(true);
+          refreshCode();
+        }
+        deviceCount.current = rows.length;
+        setDevices(rows);
+      })
+      .catch(() => {});
   }, [refreshCode]);
+
+  useEffect(loadDevices, [loadDevices]);
+  useStudioChanges("paired_devices", studioId, loadDevices);
 
   const revoke = (id: string) =>
     startTransition(async () => {

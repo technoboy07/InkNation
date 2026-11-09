@@ -16,6 +16,7 @@ export default function CameraPage() {
 
 // The proxy only checks that a pairing cookie exists; this catches one that expired or was revoked.
 async function Camera() {
-  if (!(await getPairedDevice())) redirect("/capture");
-  return <CameraView clientName="Aarav M." bodyPart="Left forearm" />;
+  const device = await getPairedDevice();
+  if (!device) redirect("/capture");
+  return <CameraView studioName={device.studioName} />;
 }

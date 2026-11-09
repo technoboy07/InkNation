@@ -4,7 +4,7 @@ import { DEVICE_COOKIE } from "@/lib/pairing-cookie";
 import { supabaseEnv } from "@/lib/supabase/config";
 
 const STUDIO_PATHS = ["/uploads", "/editor", "/mockups", "/clients", "/flash", "/setup"];
-const DEVICE_PATHS = ["/capture/camera", "/capture/sent"];
+const DEVICE_PATHS = ["/capture/camera"];
 
 const startsWithAny = (path: string, prefixes: string[]) =>
   prefixes.some((p) => path === p || path.startsWith(`${p}/`));

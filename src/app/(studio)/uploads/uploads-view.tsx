@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AssetArt } from "@/components/artwork";
 import { UploadIcon } from "@/components/icons";
+import { useStudioChanges } from "@/lib/supabase/browser";
 import type { Asset, AssetKind } from "@/lib/types";
 import { PairPanel } from "./pair-panel";
 import styles from "./uploads.module.css";
@@ -21,9 +23,13 @@ const KIND_LABEL: Record<AssetKind, string> = {
   mockup: "Mockup",
 };
 
-export function UploadsView({ assets, clients }: { assets: Asset[]; clients: string[] }) {
+export function UploadsView({ studioId, assets, clients }: { studioId: string; assets: Asset[]; clients: string[] }) {
+  const router = useRouter();
   const [kind, setKind] = useState<AssetKind | "all">("all");
   const [client, setClient] = useState("all");
+
+  // A photo sent from the phone re-renders the list from the server, with fresh signed URLs.
+  useStudioChanges("assets", studioId, () => router.refresh());
 
   const visible = assets.filter(
     (a) => (kind === "all" || a.kind === kind) && (client === "all" || a.clientName === client),
@@ -83,13 +89,18 @@ export function UploadsView({ assets, clients }: { assets: Asset[]; clients: str
             <li key={asset.id}>
               <Link href="/editor" className={styles.card}>
                 <div className={styles.thumb}>
-                  <AssetArt kind={asset.kind} />
+                  {asset.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- signed storage URL, not optimisable by next/image
+                    <img src={asset.imageUrl} alt="" loading="lazy" className={styles.thumbImg} />
+                  ) : (
+                    <AssetArt kind={asset.kind} />
+                  )}
                   <span className={styles.kind}>{KIND_LABEL[asset.kind]}</span>
                   {asset.isNew && <span className={styles.new}>New</span>}
                 </div>
                 <span className={styles.title}>{asset.title}</span>
                 <span className={styles.meta}>
-                  {asset.clientName ?? "Flash"} · {asset.createdLabel}
+                  {asset.clientName ?? (asset.kind === "design" ? "Flash" : "No client yet")} · {asset.createdLabel}
                 </span>
               </Link>
             </li>
@@ -104,7 +115,7 @@ export function UploadsView({ assets, clients }: { assets: Asset[]; clients: str
         )}
       </main>
 
-      <PairPanel />
+      <PairPanel studioId={studioId} />
     </div>
   );
 }

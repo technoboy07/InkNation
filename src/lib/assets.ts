@@ -1,20 +1,21 @@
 import "server-only";
 import { getStudioMember } from "./auth";
+import { viewUrl } from "./storage";
 import { createUserClient } from "./supabase/server";
 import type { Asset, AssetKind } from "./types";
 
 // Uploads newer than this get the "New" badge and the arrival banner.
 const NEW_FOR_MS = 30 * 60 * 1000;
 
-type AssetRow = { id: string; kind: AssetKind; title: string; created_at: string; clients: { name: string } | null };
+type AssetRow = { id: string; kind: AssetKind; title: string; r2_key: string; created_at: string; clients: { name: string } | null };
 
-export async function listStudioAssets(): Promise<{ assets: Asset[]; clients: string[] }> {
+export async function listStudioAssets(): Promise<{ studioId: string; assets: Asset[]; clients: string[] }> {
   const member = await getStudioMember();
   const supabase = await createUserClient();
   const [assets, clients] = await Promise.all([
     supabase
       .from("assets")
-      .select("id, kind, title, created_at, clients (name)")
+      .select("id, kind, title, r2_key, created_at, clients (name)")
       .eq("studio_id", member.studioId)
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
@@ -26,14 +27,17 @@ export async function listStudioAssets(): Promise<{ assets: Asset[]; clients: st
   if (clients.error) throw clients.error;
 
   const now = Date.now();
+  const imageUrls = await Promise.all(assets.data.map((row) => viewUrl(row.r2_key).catch(() => null)));
   return {
-    assets: assets.data.map((row) => ({
+    studioId: member.studioId,
+    assets: assets.data.map((row, i) => ({
       id: row.id,
       kind: row.kind,
       title: row.title,
       clientName: row.clients?.name ?? null,
       createdLabel: relativeLabel(new Date(row.created_at), now),
       isNew: now - new Date(row.created_at).getTime() < NEW_FOR_MS,
+      imageUrl: imageUrls[i],
     })),
     clients: clients.data.map((c) => c.name),
   };

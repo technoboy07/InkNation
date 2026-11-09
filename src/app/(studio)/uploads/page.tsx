@@ -14,6 +14,6 @@ export default function UploadsPage() {
 }
 
 async function Uploads() {
-  const { assets, clients } = await listStudioAssets();
-  return <UploadsView assets={assets} clients={clients} />;
+  const { studioId, assets, clients } = await listStudioAssets();
+  return <UploadsView studioId={studioId} assets={assets} clients={clients} />;
 }

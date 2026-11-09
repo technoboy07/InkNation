@@ -6,19 +6,20 @@ The earlier 3D try-on prototype is shelved; it is in git history before this bra
 
 ## Status
 
-Sign-in, studio setup and phone pairing run on Supabase. Photo uploads, the editor engine and background removal are still to come.
+Sign-in, studio setup, phone pairing and phone photo uploads work. The editor engine and background removal are still to come.
 
 | Route | Screen | What works today |
 | --- | --- | --- |
 | `/sign-in`, `/setup` | Email-link sign-in, then name your studio | Real (Supabase Auth) |
-| `/uploads` | Uploads library and phone pairing panel | Lists the studio's assets; live pairing QR and 6-digit code; paired phones with revoke |
+| `/uploads` | Uploads library and phone pairing panel | The studio's photos with real thumbnails, updating live as the phone sends them; pairing QR and 6-digit code; paired phones with revoke |
 | `/editor` | Mockup editor | Sample layers. Tool switching, layer show/hide/lock, blend mode, opacity, healed-look preview, zoom |
 | `/capture` | Phone: pair with the studio | Real: QR link or 6-digit code pairs the phone for 12 hours; unpair |
-| `/capture/camera` | Phone: camera | Needs pairing. Real camera after a tap, shutter, gallery picker; sending isn't wired yet |
-| `/capture/sent` | Phone: upload progress | Static |
+| `/capture/camera` | Phone: camera and sending | Needs pairing. Camera or gallery; Send uploads each photo straight to storage with progress and retry |
 | `/mockups`, `/clients`, `/flash` | Placeholders | — |
 
 Studio routes need a signed-in user who belongs to a studio (`src/proxy.ts`, `src/lib/auth.ts`). Phone routes need the pairing cookie; phones never sign in. Their requests use the service role after the device token is checked (`src/lib/pairing.ts`).
+
+Photos go from the phone straight to storage through short-lived signed URLs (`src/lib/storage.ts`, `src/app/capture/camera/upload-actions.ts`); the server only checks the file landed and records it in `assets`. Before sending, the phone redraws every photo through a canvas (`prepare-photo.ts`), which caps it at 4096 px and drops EXIF, GPS included. Storage is any S3-compatible bucket: Cloudflare R2 in production, Supabase Storage locally.
 
 The editor preview uses CSS blend modes and filters as a stand-in. The real canvas will be a WebGL compositor (PixiJS) so mesh warp stays smooth on a 12 MP photo.
 
@@ -29,11 +30,11 @@ Needs Docker for the local Supabase stack.
 ```bash
 npm install
 npx supabase start
-npx supabase status -o env   # copy API_URL, ANON_KEY and SERVICE_ROLE_KEY into .env.local
+npx supabase status -o env   # copy the Supabase and S3 values into .env.local (see .env.example)
 npm run dev
 ```
 
-`.env.local` uses the names in `.env.example`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
+`.env.local` uses the names in `.env.example`. For local storage use `STORAGE_S3_URL` and the `S3_PROTOCOL_*` keys from that output with region `local`; `supabase/seed.sql` creates the bucket.
 
 Open http://localhost:3000 and sign in. Locally, sign-in emails are caught by Mailpit at http://localhost:54324. `supabase/config.toml` allows redirects back to ports 3000 and 3100.
 
@@ -47,8 +48,8 @@ To pair a real phone, it has to reach the dev server: set `NEXT_PUBLIC_SITE_URL`
 
 ## Next steps
 
-1. Phone uploads straight to R2 through presigned URLs, recorded in `assets`.
-2. Uploads screen live through Realtime (replaces the pairing panel's polling, too).
-3. Hosted Supabase project for the Vercel deployment.
+1. Hosted Supabase project and an R2 bucket (with CORS for the site's origin) for the Vercel deployment.
+2. Small thumbnails: the grid loads full-size photos today. Also a storage lifecycle rule to clear uploads that were never confirmed.
+3. Assign photos to clients, from the phone or the studio.
 4. Editor engine on PixiJS: layers, transforms, mesh warp, history, autosave.
 5. Background removal in the browser (BiRefNet via ONNX Runtime Web) plus line-art threshold mode.

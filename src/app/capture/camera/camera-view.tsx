@@ -2,19 +2,38 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRightIcon, ChevronDownIcon, CloseIcon, FlashIcon } from "@/components/icons";
+import { ArrowRightIcon, CheckIcon, CloseIcon, FlashIcon } from "@/components/icons";
+import { Logo } from "@/components/logo";
+import { photoFromFile, photoFromVideo, putWithProgress, type PreparedPhoto } from "./prepare-photo";
+import { finishPhotoUpload, startPhotoUpload } from "./upload-actions";
+import captureStyles from "../capture.module.css";
 import styles from "./camera.module.css";
 
 type CameraStatus = "idle" | "starting" | "live" | "blocked";
 
+type Shot = {
+  id: string;
+  title: string;
+  previewUrl: string;
+  photo: PreparedPhoto;
+  state: "ready" | "sending" | "sent" | "failed";
+  progress: number;
+  error?: string;
+};
+
+const clockTime = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const fileSize = (bytes: number) => (bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`);
+
 // The camera starts on a tap, not on load: iOS Safari is more reliable with a user gesture.
-export function CameraView({ clientName, bodyPart }: { clientName: string; bodyPart: string }) {
+export function CameraView({ studioName }: { studioName: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const urlsRef = useRef<string[]>([]);
   const [status, setStatus] = useState<CameraStatus>("idle");
   const [mode, setMode] = useState<"photo" | "ruler">("photo");
-  const [shots, setShots] = useState<string[]>([]);
+  const [shots, setShots] = useState<Shot[]>([]);
+  const [phase, setPhase] = useState<"capture" | "send">("capture");
+  const [pickError, setPickError] = useState<string | null>(null);
 
   useEffect(() => {
     // Same array that addShot pushes into, so the cleanup sees every URL.
@@ -25,10 +44,20 @@ export function CameraView({ clientName, bodyPart }: { clientName: string; bodyP
     };
   }, []);
 
-  function addShot(blob: Blob) {
-    const url = URL.createObjectURL(blob);
-    urlsRef.current.push(url);
-    setShots((prev) => [...prev, url]);
+  function addShot(photo: PreparedPhoto) {
+    const previewUrl = URL.createObjectURL(photo.blob);
+    urlsRef.current.push(previewUrl);
+    const shot: Shot = { id: crypto.randomUUID(), title: `Photo ${clockTime()}`, previewUrl, photo, state: "ready", progress: 0 };
+    setShots((prev) => [...prev, shot]);
+  }
+
+  const updateShot = (id: string, patch: Partial<Shot>) =>
+    setShots((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+
+  function stopCamera() {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setStatus("idle");
   }
 
   async function startCamera() {
@@ -53,20 +82,112 @@ export function CameraView({ clientName, bodyPart }: { clientName: string; bodyP
     }
   }
 
-  function takePhoto() {
+  async function takePhoto() {
     const video = videoRef.current;
     if (status !== "live" || !video) return;
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext("2d")?.drawImage(video, 0, 0);
-    // TODO: resize to 4096 px long edge, then upload to the presigned R2 URL from the API.
-    canvas.toBlob((blob) => blob && addShot(blob), "image/jpeg", 0.92);
+    addShot(await photoFromVideo(video));
   }
 
-  function pickFromGallery(files: FileList | null) {
-    // TODO: convert HEIC to JPEG and strip EXIF location before upload.
-    Array.from(files ?? []).forEach(addShot);
+  async function pickFromGallery(files: FileList | null) {
+    setPickError(null);
+    for (const file of Array.from(files ?? [])) {
+      try {
+        addShot(await photoFromFile(file));
+      } catch {
+        setPickError(`Couldn't open ${file.name}. Try a JPEG or PNG.`);
+      }
+    }
+  }
+
+  async function sendShot(shot: Shot) {
+    updateShot(shot.id, { state: "sending", progress: 0, error: undefined });
+    try {
+      const ticket = await startPhotoUpload();
+      if ("error" in ticket) throw new Error(ticket.error);
+      await putWithProgress(ticket.url, shot.photo.blob, (progress) => updateShot(shot.id, { progress }));
+      const result = await finishPhotoUpload({ key: ticket.key, title: shot.title, width: shot.photo.width, height: shot.photo.height });
+      if ("error" in result) throw new Error(result.error);
+      updateShot(shot.id, { state: "sent", progress: 1 });
+    } catch (e) {
+      updateShot(shot.id, { state: "failed", error: e instanceof Error ? e.message : "Upload failed." });
+    }
+  }
+
+  // One at a time, so a weak connection gives each photo its full bandwidth.
+  async function startSending() {
+    stopCamera();
+    setPhase("send");
+    for (const shot of shots.filter((s) => s.state !== "sent")) await sendShot(shot);
+  }
+
+  function takeMore() {
+    shots.forEach((s) => URL.revokeObjectURL(s.previewUrl));
+    urlsRef.current.length = 0;
+    setShots([]);
+    setPhase("capture");
+  }
+
+  if (phase === "send") {
+    const sending = shots.some((s) => s.state === "sending" || s.state === "ready");
+    const failed = shots.some((s) => s.state === "failed");
+    return (
+      <main className={captureStyles.screen}>
+        <Logo label="InkNation Capture" />
+        <div className={captureStyles.intro}>
+          {!sending && !failed && (
+            <span className={captureStyles.success}>
+              <CheckIcon size={26} strokeWidth={2.4} />
+            </span>
+          )}
+          <h1>{sending ? "Sending to the studio…" : failed ? "Some photos didn't send" : "On the studio screen"}</h1>
+          <p>In {studioName}&apos;s Uploads. Location data was removed before sending.</p>
+        </div>
+
+        <ul className={captureStyles.sentList}>
+          {shots.map((shot) => (
+            <li key={shot.id}>
+              <div className={captureStyles.sentRow}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- local object URL preview */}
+                <img src={shot.previewUrl} alt="" className={captureStyles.sentThumb} />
+                <span className={captureStyles.sentText}>
+                  <span>{shot.title}</span>
+                  <span className={captureStyles.fine}>
+                    {shot.state === "ready" && "Waiting…"}
+                    {shot.state === "sending" && `Sending · ${Math.round(shot.progress * 100)}%`}
+                    {shot.state === "sent" && fileSize(shot.photo.blob.size)}
+                    {shot.state === "failed" && shot.error}
+                  </span>
+                </span>
+                {shot.state === "sent" && <strong>Sent</strong>}
+                {shot.state === "failed" && (
+                  <button type="button" className="btn" onClick={() => sendShot(shot)}>
+                    Retry
+                  </button>
+                )}
+              </div>
+              {shot.state === "sending" && (
+                <div
+                  role="progressbar"
+                  aria-label={`Upload progress, ${shot.title}`}
+                  aria-valuenow={Math.round(shot.progress * 100)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  className={captureStyles.progress}
+                >
+                  <span style={{ width: `${shot.progress * 100}%` }} />
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+
+        <div className={captureStyles.footer}>
+          <button type="button" className={`btn btn-primary ${captureStyles.tall}`} onClick={takeMore} disabled={sending}>
+            Take more
+          </button>
+        </div>
+      </main>
+    );
   }
 
   const latest = shots.at(-1);
@@ -77,10 +198,7 @@ export function CameraView({ clientName, bodyPart }: { clientName: string; bodyP
         <Link href="/capture" className={styles.round} aria-label="Close camera">
           <CloseIcon />
         </Link>
-        <button type="button" className={styles.client}>
-          For {clientName} · {bodyPart}
-          <ChevronDownIcon size={14} />
-        </button>
+        <span className={styles.client}>To {studioName}</span>
         <button type="button" className={styles.round} aria-label="Flash off">
           <FlashIcon />
         </button>
@@ -102,7 +220,7 @@ export function CameraView({ clientName, bodyPart }: { clientName: string; bodyP
         )}
         <div className={styles.guide} aria-hidden="true" />
         <span className={styles.tip}>
-          {mode === "ruler" ? "Place the scale card flat on the skin" : "Fit the whole area inside the frame"}
+          {pickError ?? (mode === "ruler" ? "Place the scale card flat on the skin" : "Fit the whole area inside the frame")}
         </span>
       </div>
 
@@ -119,7 +237,7 @@ export function CameraView({ clientName, bodyPart }: { clientName: string; bodyP
         <label className={styles.stack} aria-label="Pick photos from the gallery">
           {latest ? (
             // eslint-disable-next-line @next/next/no-img-element -- local object URL preview
-            <img src={latest} alt="" className={styles.stackImg} />
+            <img src={latest.previewUrl} alt="" className={styles.stackImg} />
           ) : (
             <span className={styles.stackEmpty}>Gallery</span>
           )}
@@ -132,10 +250,10 @@ export function CameraView({ clientName, bodyPart }: { clientName: string; bodyP
         </button>
 
         {shots.length > 0 ? (
-          <Link href="/capture/sent" className={styles.send}>
+          <button type="button" className={styles.send} onClick={startSending}>
             Send {shots.length}
             <ArrowRightIcon size={16} />
-          </Link>
+          </button>
         ) : (
           <span className={styles.sendPlaceholder} aria-hidden="true" />
         )}

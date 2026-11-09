@@ -246,7 +246,9 @@
 
 .send {
   padding: 0 18px;
+  border: 0;
   border-radius: 24px;
+  cursor: pointer;
   background: var(--accent);
   color: #ffffff;
   font-weight: 600;
