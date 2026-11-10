@@ -7,7 +7,15 @@ import type { Asset, AssetKind } from "./types";
 // Uploads newer than this get the "New" badge and the arrival banner.
 const NEW_FOR_MS = 30 * 60 * 1000;
 
-type AssetRow = { id: string; kind: AssetKind; title: string; r2_key: string; created_at: string; clients: { name: string } | null };
+type AssetRow = {
+  id: string;
+  kind: AssetKind;
+  title: string;
+  r2_key: string;
+  device_id: string | null;
+  created_at: string;
+  clients: { name: string } | null;
+};
 
 export async function listStudioAssets(): Promise<{ studioId: string; assets: Asset[]; clients: string[] }> {
   const member = await getStudioMember();
@@ -15,7 +23,7 @@ export async function listStudioAssets(): Promise<{ studioId: string; assets: As
   const [assets, clients] = await Promise.all([
     supabase
       .from("assets")
-      .select("id, kind, title, r2_key, created_at, clients (name)")
+      .select("id, kind, title, r2_key, device_id, created_at, clients (name)")
       .eq("studio_id", member.studioId)
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
@@ -37,6 +45,7 @@ export async function listStudioAssets(): Promise<{ studioId: string; assets: As
       clientName: row.clients?.name ?? null,
       createdLabel: relativeLabel(new Date(row.created_at), now),
       isNew: now - new Date(row.created_at).getTime() < NEW_FOR_MS,
+      fromPhone: row.device_id !== null,
       imageUrl: imageUrls[i],
     })),
     clients: clients.data.map((c) => c.name),

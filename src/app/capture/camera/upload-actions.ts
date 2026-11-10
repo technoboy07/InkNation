@@ -1,15 +1,8 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
 import { getPairedDevice } from "@/lib/pairing";
-import { deleteObject, headObject, uploadUrl } from "@/lib/storage";
 import { createServiceClient } from "@/lib/supabase/server";
-
-const MAX_PHOTO_BYTES = 25 * 1024 * 1024;
-const KEY_PATTERN = /^studios\/[0-9a-f-]{36}\/photos\/[0-9a-f-]{36}\.jpg$/;
-
-export type UploadTicket = { key: string; url: string } | { error: string };
-export type UploadResult = { ok: true } | { error: string };
+import { assetTitle, issuedKind, issueUpload, verifyUpload, type UploadResult, type UploadTicket } from "@/lib/uploads";
 
 const NOT_PAIRED = "This phone isn't paired any more. Pair it again from the studio screen.";
 
@@ -17,22 +10,17 @@ const NOT_PAIRED = "This phone isn't paired any more. Pair it again from the stu
 export async function startPhotoUpload(): Promise<UploadTicket> {
   const device = await getPairedDevice();
   if (!device) return { error: NOT_PAIRED };
-  const key = `studios/${device.studioId}/photos/${randomUUID()}.jpg`;
-  return { key, url: await uploadUrl(key) };
+  return issueUpload(device.studioId, "photo", "image/jpeg");
 }
 
 // Step 2: once the PUT finishes, check the file really landed and file it under the studio.
 export async function finishPhotoUpload(input: { key: string; title: string; width: number; height: number }): Promise<UploadResult> {
   const device = await getPairedDevice();
   if (!device) return { error: NOT_PAIRED };
-  if (!KEY_PATTERN.test(input.key) || !input.key.startsWith(`studios/${device.studioId}/`)) return { error: "Unknown upload." };
+  if (issuedKind(input.key, device.studioId) !== "photo") return { error: "Unknown upload." };
 
-  const object = await headObject(input.key);
-  if (!object) return { error: "The photo didn't reach the studio. Try again." };
-  if (object.size > MAX_PHOTO_BYTES || !object.contentType.startsWith("image/jpeg")) {
-    await deleteObject(input.key);
-    return { error: "That file isn't a photo the studio can use." };
-  }
+  const problem = await verifyUpload(input.key, "photo");
+  if (problem) return { error: problem };
 
   const { error } = await createServiceClient()
     .from("assets")
@@ -40,7 +28,7 @@ export async function finishPhotoUpload(input: { key: string; title: string; wid
       studio_id: device.studioId,
       device_id: device.id,
       kind: "photo",
-      title: input.title.trim().slice(0, 120) || "Photo",
+      title: assetTitle(input.title, "Photo"),
       r2_key: input.key,
       width_px: Math.round(input.width) || null,
       height_px: Math.round(input.height) || null,
