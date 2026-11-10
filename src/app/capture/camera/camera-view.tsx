@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRightIcon, CheckIcon, CloseIcon, FlashIcon } from "@/components/icons";
 import { Logo } from "@/components/logo";
-import { photoFromFile, photoFromVideo, putWithProgress, type PreparedPhoto } from "./prepare-photo";
+import { photoFromFile, photoFromVideo, putWithProgress, type PreparedImage } from "@/lib/images";
 import { finishPhotoUpload, startPhotoUpload } from "./upload-actions";
 import captureStyles from "../capture.module.css";
 import styles from "./camera.module.css";
@@ -15,7 +15,7 @@ type Shot = {
   id: string;
   title: string;
   previewUrl: string;
-  photo: PreparedPhoto;
+  photo: PreparedImage;
   state: "ready" | "sending" | "sent" | "failed";
   progress: number;
   error?: string;
@@ -44,7 +44,7 @@ export function CameraView({ studioName }: { studioName: string }) {
     };
   }, []);
 
-  function addShot(photo: PreparedPhoto) {
+  function addShot(photo: PreparedImage) {
     const previewUrl = URL.createObjectURL(photo.blob);
     urlsRef.current.push(previewUrl);
     const shot: Shot = { id: crypto.randomUUID(), title: `Photo ${clockTime()}`, previewUrl, photo, state: "ready", progress: 0 };

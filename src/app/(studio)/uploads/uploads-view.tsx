@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AssetArt } from "@/components/artwork";
-import { UploadIcon } from "@/components/icons";
 import { useStudioChanges } from "@/lib/supabase/browser";
 import type { Asset, AssetKind } from "@/lib/types";
 import { PairPanel } from "./pair-panel";
+import { UploadButton } from "./upload-button";
 import styles from "./uploads.module.css";
 
 const KIND_FILTERS: { value: AssetKind | "all"; label: string }[] = [
@@ -28,13 +28,13 @@ export function UploadsView({ studioId, assets, clients }: { studioId: string; a
   const [kind, setKind] = useState<AssetKind | "all">("all");
   const [client, setClient] = useState("all");
 
-  // A photo sent from the phone re-renders the list from the server, with fresh signed URLs.
+  // A photo sent from the phone (or an upload in another tab) re-renders the list from the server, with fresh signed URLs.
   useStudioChanges("assets", studioId, () => router.refresh());
 
   const visible = assets.filter(
     (a) => (kind === "all" || a.kind === kind) && (client === "all" || a.clientName === client),
   );
-  const fresh = assets.filter((a) => a.isNew);
+  const fresh = assets.filter((a) => a.isNew && a.fromPhone);
 
   return (
     <div className={styles.page}>
@@ -44,11 +44,7 @@ export function UploadsView({ studioId, assets, clients }: { studioId: string; a
             <h1>Uploads</h1>
             <p>Everything shot on the studio phone or dropped in here, filed by client.</p>
           </div>
-          <label className="btn btn-primary">
-            <UploadIcon size={16} />
-            Upload files
-            <input type="file" accept="image/png,image/jpeg,image/webp,image/heic,image/svg+xml" multiple className="visually-hidden" />
-          </label>
+          <UploadButton />
         </div>
 
         {fresh.length > 0 && (
@@ -91,7 +87,7 @@ export function UploadsView({ studioId, assets, clients }: { studioId: string; a
                 <div className={styles.thumb}>
                   {asset.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element -- signed storage URL, not optimisable by next/image
-                    <img src={asset.imageUrl} alt="" loading="lazy" className={styles.thumbImg} />
+                    <img src={asset.imageUrl} alt="" loading="lazy" className={asset.kind === "design" ? styles.thumbDesign : styles.thumbImg} />
                   ) : (
                     <AssetArt kind={asset.kind} />
                   )}

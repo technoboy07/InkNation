@@ -165,6 +165,13 @@
   display: block;
 }
 
+/* Designs show whole, with their transparency, rather than cropped to fill like photos. */
+.thumbDesign {
+  composes: thumbImg;
+  object-fit: contain;
+  padding: 12%;
+}
+
 .kind,
 .new {
   position: absolute;
@@ -329,4 +336,48 @@
   .aside {
     max-width: none;
   }
+}
+
+.uploader {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.uploader [aria-disabled="true"] {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.uploadBar {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--sunken);
+  overflow: hidden;
+}
+
+.uploadBar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.uploadErrors {
+  max-width: 360px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: #fef3f2;
+  color: #b42318;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.uploadErrors ul {
+  margin: 0;
+  padding-left: 16px;
 }

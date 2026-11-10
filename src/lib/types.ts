@@ -8,6 +8,7 @@ export type Asset = {
   clientName: string | null;
   createdLabel: string;
   isNew?: boolean;
+  fromPhone?: boolean;
   // Short-lived signed URL for the image; null when the file can't be shown yet.
   imageUrl?: string | null;
 };
